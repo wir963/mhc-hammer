@@ -213,29 +213,15 @@ overview_table <- merge(overview_table,
                         hlahd_alleles, 
                         by = "patient", allow.cartesian=TRUE, all.x = TRUE)
 
-# check each region has an A B and C
-n_A <- overview_table[gene == "A", .N, by = "sample_name"]
-n_B <- overview_table[gene == "B", .N, by = "sample_name"]
-n_C <- overview_table[gene == "C", .N, by = "sample_name"]
-setnames(n_A, "N", "A")
-setnames(n_B, "N", "B")
-setnames(n_C, "N", "C")
-overview_table <- merge(overview_table, 
-                        n_A, 
-                        by = "sample_name", all.x = TRUE)
-overview_table <- merge(overview_table, 
-                        n_B, 
-                        by = "sample_name", all.x = TRUE)
-overview_table <- merge(overview_table, 
-                        n_C, 
-                        by = "sample_name", all.x = TRUE)
-overview_table[is.na(A), A:= 0]
-overview_table[is.na(B), B:= 0]
-overview_table[is.na(C), C:= 0]
-if(nrow(overview_table[A != 1 | B != 1 | C != 1])){
-  warning("Something has gone wrong with the HLAHD output - there should be 3 genes predictions per patient")
+# Sanity check: each sample should have exactly one gene-level row per typed gene
+# (class I A/B/C plus any class II genes incl. the collapsed DRB345 locus).
+# Genes a sample does not carry (e.g. an absent DRB345) simply don't appear and
+# are not flagged.
+gene_counts <- overview_table[, .N, by = c("sample_name", "gene")]
+if(nrow(gene_counts[N != 1]) > 0){
+  warning("Something has gone wrong with the HLAHD output - expected exactly one prediction per gene per sample:")
+  print(gene_counts[N != 1])
 }
-overview_table[,c("A", "B", "C") := NULL]
 
 overview_table[, gene := paste0("HLA-", gene)]
 

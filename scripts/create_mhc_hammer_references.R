@@ -93,23 +93,41 @@ alleles_with_unmatching_cds_exon_seq <- c()
 alleles_with_unmatching_gen_seq <- c() 
 alleles_with_unmatching_cds_seq <- c()
 
-for(gene_to_run in c("HLA-A", "HLA-B", "HLA-C")){
-  
+class_i_genes <- c("HLA-A", "HLA-B", "HLA-C")
+# Class II.  DRB3/4/5 are built under their real gene names; the DRB345 locus
+# label is applied later at typing/reporting.  DRA is near-monomorphic and acts
+# mainly as a coverage anchor.
+class_ii_genes <- c("HLA-DRA", "HLA-DRB1", "HLA-DRB3", "HLA-DRB4", "HLA-DRB5",
+                    "HLA-DQA1", "HLA-DQB1", "HLA-DPA1", "HLA-DPB1")
+
+for(gene_to_run in c(class_i_genes, class_ii_genes)){
+
   cat("Processing ", gene_to_run, "\n")
-  
+
   allele_list <- all_allele_list[gene == gene_to_run]
   if(nrow(allele_list) == 0){
-    stop("Gene not in allele list ")
+    cat("\tWARNING: gene not in allele list, skipping:", gene_to_run, "\n")
+    next
   }
-  
+
   strand <- as.character(strand_dt[gene == gene_to_run]$strand)
-  
+  if(length(strand) == 0 || is.na(strand)){
+    stop("No strand information for ", gene_to_run, " - add it to strand_info.txt")
+  }
+
   cat("\tGetting msf\n")
   msf_dir <- paste0(imgt_dir, "/msf")
   # get the distance matrix
   dist_mat <- get_dist_matrix(msf_dir, gene_to_run)
-  # Update the distance matrices so it only includes alleles with full gdna sequences
-  dist_mat <- dist_mat[,allele_list[Partial == "Full" & Type == "gDNA"]$Allele]
+  # Update the distance matrices so it only includes alleles with full gdna sequences.
+  # Without a full-gDNA template we cannot reconstruct partial alleles for the gene,
+  # so skip the gene gracefully (relevant for sparse class II genes in older IMGT releases).
+  full_gdna_alleles <- allele_list[Partial == "Full" & Type == "gDNA"]$Allele
+  if(length(full_gdna_alleles) == 0){
+    cat("\tWARNING: no full-gDNA alleles for", gene_to_run, "- skipping gene\n")
+    next
+  }
+  dist_mat <- dist_mat[, full_gdna_alleles, drop = FALSE]
   
   cat("\tCreating references\n")
   

@@ -89,7 +89,12 @@ for(line_idx in 1:nrow(allele_index)){
   gene_line <- grep("gene=", ft_lines, value = TRUE)
   gene <- paste0(gsub('.*gene=\\\"(.*)\\\"', "\\1", gene_line), collapse = ",")
   
-  if(!gene %in% c("HLA-A", "HLA-B", "HLA-C")){
+  # Class I (A/B/C) plus class II genes.  DRB3/DRB4/DRB5 are kept as their real
+  # gene names here; they are collapsed into a single "DRB345" locus only at the
+  # typing/reporting level (see hlahd_parse_output.R / make_cohort_overview_table.R).
+  if(!gene %in% c("HLA-A", "HLA-B", "HLA-C",
+                  "HLA-DRA", "HLA-DRB1", "HLA-DRB3", "HLA-DRB4", "HLA-DRB5",
+                  "HLA-DQA1", "HLA-DQB1", "HLA-DPA1", "HLA-DPB1")){
     next
   }
   
