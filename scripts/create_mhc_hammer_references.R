@@ -90,8 +90,39 @@ transcriptome_fasta <- NULL
 gtf <- data.table()
 exon_intron_dt <- data.table()
 alleles_with_unmatching_cds_exon_seq <- c()
-alleles_with_unmatching_gen_seq <- c() 
+alleles_with_unmatching_gen_seq <- c()
 alleles_with_unmatching_cds_seq <- c()
+skipped_no_covering_template <- c()
+
+# Feature names (type_number, excluding CDS) for an allele, mirroring the
+# feature-name construction in get_missing_seq (incl. UTR renumbering by order).
+get_allele_feature_names <- function(allele, hla_dat_allele_features){
+  dt <- hla_dat_allele_features[allele_name == allele & type != "CDS"]
+  if(nrow(dt) == 0){
+    return(character(0))
+  }
+  dt <- dt[order(start)]
+  dt[, utr_number := 1:.N, by = "type"]
+  dt[type == "UTR", number := utr_number]
+  paste0(dt$type, "_", dt$number)
+}
+
+# Walk the full-gDNA candidates nearest-first and return the first one whose
+# feature set covers all of the partial allele's features (so get_missing_seq
+# won't abort with "Similar allele missing something").  Returns NULL if none
+# covers it - the caller then skips the allele.  This is the DRB4/class II case:
+# sub-gene full-gDNA pools are tiny and may not span every partial allele.
+get_covering_similar_allele <- function(allele, dist_mat, hla_dat_allele_features){
+  allele_features <- get_allele_feature_names(allele, hla_dat_allele_features)
+  dists <- dist_mat[allele, ]
+  for(cand in names(sort(dists))){
+    cand_features <- get_allele_feature_names(cand, hla_dat_allele_features)
+    if(all(allele_features %in% cand_features)){
+      return(list(similar_allele = cand, min_dist = dists[[cand]]))
+    }
+  }
+  return(NULL)
+}
 
 class_i_genes <- c("HLA-A", "HLA-B", "HLA-C")
 # Class II.  DRB3/4/5 are built under their real gene names; the DRB345 locus
@@ -141,7 +172,22 @@ for(gene_to_run in c(class_i_genes, class_ii_genes)){
     
     allele <- allele_list[line_idx]$Allele
     save_allele_name <- paste0("hla_", (tolower(gsub('\\*|:', '_', allele))))
-    
+
+    # If either the genomic or nuc sequence has to be reconstructed, find a
+    # covering full-gDNA template up front.  If none exists, skip the allele
+    # rather than aborting the whole build (DRB4/class II sparse-pool case).
+    needs_reconstruction <- (!allele_list[line_idx]$full_gen_seq_exists) ||
+                            (!allele_list[line_idx]$full_nuc_seq_exists)
+    covering <- NULL
+    if(needs_reconstruction){
+      covering <- get_covering_similar_allele(allele, dist_mat, hla_dat_allele_features)
+      if(is.null(covering)){
+        cat("\tWARNING: no covering full-gDNA template for", allele, "- skipping allele\n")
+        skipped_no_covering_template <- c(skipped_no_covering_template, allele)
+        next
+      }
+    }
+
     ##### get genomic sequence ####
     if(allele_list[line_idx]$full_gen_seq_exists){
       
@@ -167,11 +213,11 @@ for(gene_to_run in c(class_i_genes, class_ii_genes)){
       
     }else{
       # full genome sequence doesn't exist
-      
-      # get similar allele
-      min_dist <- min(dist_mat[allele,])
-      similar_allele <- names(which.min(dist_mat[allele,]))
-      
+
+      # nearest covering full-gDNA template (selected above)
+      min_dist <- covering$min_dist
+      similar_allele <- covering$similar_allele
+
       # get missing sequences
       genome_allele_dt <- get_missing_seq(allele, similar_allele, hla_dat_allele_features)
       genome_allele_dt[, min_dist := min_dist]
@@ -216,11 +262,11 @@ for(gene_to_run in c(class_i_genes, class_ii_genes)){
     }else{
       
       # full nuc sequence doesnt exist
-      
-      # get similar allele
-      min_dist <- min(dist_mat[allele,])
-      similar_allele <- names(which.min(dist_mat[allele,]))
-      
+
+      # nearest covering full-gDNA template (selected above)
+      min_dist <- covering$min_dist
+      similar_allele <- covering$similar_allele
+
       # get missing sequences
       nuc_allele_dt <- get_missing_seq(allele, similar_allele, hla_dat_allele_features)
       
@@ -245,6 +291,12 @@ for(gene_to_run in c(class_i_genes, class_ii_genes)){
     genome_strand_specific_fasta[[save_allele_name]] <- allele_gen_strand_specific_fasta
     transcriptome_fasta[[save_allele_name]] <- allele_nuc_fasta
   }
+}
+
+if(length(skipped_no_covering_template) > 0){
+  cat("Skipped", length(skipped_no_covering_template),
+      "alleles with no covering full-gDNA template:\n")
+  cat(paste0("\t", skipped_no_covering_template, collapse = "\n"), "\n")
 }
 
 cat("Saving files")
