@@ -94,11 +94,15 @@ process MAKE_HLA_ALLELE_BAMS {
     touch ${meta.sample_id}_passed_hla_alleles.txt
     
     # get list of hla_genes in the fasta file
-    hla_genes=\$(grep '^>' ${fasta} | sed 's/^>//' | cut -d '_' -f 1,2 | sort -u)
+    # collapse the haplotype-conditional DRB3/4/5 sub-genes into one DRB345 locus so
+    # their two alleles are paired as a heterozygous gene (contigs stay hla_drb3_*/hla_drb4_*)
+    hla_genes=\$(grep '^>' ${fasta} | sed 's/^>//' | cut -d '_' -f 1,2 | sed -E 's/^hla_drb[345]\$/hla_drb345/' | sort -u)
     echo "Checking for genes that pass"
     for hla_gene in \${hla_genes}; do  
         echo \${hla_gene}
-        alleles=(\$(grep '^>' ${fasta} | sed 's/^>//' | grep \${hla_gene} ))
+        # DRB345 contigs are named hla_drb3_*/hla_drb4_*/hla_drb5_*, so expand the token
+        if [ "\${hla_gene}" = "hla_drb345" ]; then gene_pat="hla_drb[345]_"; else gene_pat="\${hla_gene}"; fi
+        alleles=(\$(grep '^>' ${fasta} | sed 's/^>//' | grep -E "\${gene_pat}" ))
 
         allele_count=\${#alleles[@]}
         echo \${allele_count}
