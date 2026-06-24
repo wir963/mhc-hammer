@@ -156,7 +156,9 @@ process GET_HLA_ALLELIC_IMBALANCE {
         echo Calculating RNA AIB for \${gene}
 
         # Declare inputs
-        hla_gene_alleles=\$(grep ^'>' ${personalised_reference} | sed 's/^>//' | grep \${gene} | sort -u)
+        # DRB345 contigs are named hla_drb3_*/hla_drb4_*/hla_drb5_*, so expand the token
+        if [ "\${gene}" = "hla_drb345" ]; then gene_pat="hla_drb[345]_"; else gene_pat="\${gene}"; fi
+        hla_gene_alleles=\$(grep ^'>' ${personalised_reference} | sed 's/^>//' | grep -E "\${gene_pat}" | sort -u)
         allele1=\$(echo \${hla_gene_alleles} | cut -f 1 -d ' ')
         allele2=\$(echo \${hla_gene_alleles} | cut -f 2 -d ' ')
         allele1_snp_path=\${allele1}_${reference_type}.snp_pos.bed
