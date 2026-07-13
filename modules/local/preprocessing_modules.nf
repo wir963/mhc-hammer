@@ -100,7 +100,7 @@ process GENERATE_HLA_FQS {
     script: 
     """
     # Run samtools collate and fastq to generate paired fastq files
-    samtools collate -u -O ${subset_bam_file[0]} | \
+    samtools collate -u -O ${subset_bam_file[0]} tmp_collate | \
     samtools fastq -1 ${meta.sample_id}_${meta.seq}.1.fq.gz \
                     -2 ${meta.sample_id}_${meta.seq}.2.fq.gz \
                     -s /dev/null \

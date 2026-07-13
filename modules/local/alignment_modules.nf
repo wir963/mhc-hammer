@@ -208,7 +208,7 @@ process STAR_ALIGN_FIRST_PASS {
     samtools view ${bam[0]} | grep -F -f ${kmer_file} >> \${small_sam}
 
     # generate fastqs
-    samtools collate -u -O \${small_sam} | \
+    samtools collate -u -O \${small_sam} tmp_collate | \
     samtools fastq -1 \${fq_name}.1.fq.gz \
                     -2 \${fq_name}.2.fq.gz \
                     -s /dev/null \
@@ -365,7 +365,7 @@ process STAR_ALIGN_SECOND_PASS {
     samtools view ${bam[0]} | grep -F -f ${kmer} >> \${small_sam}
 
     # generate fastqs
-    samtools collate -u -O \${small_sam} | \
+    samtools collate -u -O \${small_sam} tmp_collate | \
     samtools fastq -1 ${meta.sample_id}.1.fq.gz \
                     -2 ${meta.sample_id}.2.fq.gz \
                     -s /dev/null \
