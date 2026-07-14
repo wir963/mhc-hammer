@@ -67,7 +67,11 @@ if(nrow(snp_reads_overlap) > 0){
 }
 
 if(no_snps){
-  coverage <- data.table(pos = snp_positions$V3,
+  # depth-per-position is unique by definition; snp_positions$V3 can carry
+  # duplicate positions (e.g. collapsed DRB345 null alleles like drb4_*_02n),
+  # which would otherwise cartesian-explode the position merge in
+  # calculate_depth_aib. de-dup here so the fallback matches the normal path.
+  coverage <- data.table(pos = unique(snp_positions$V3),
                          depth = 0)
 }
 

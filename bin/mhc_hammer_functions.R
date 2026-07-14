@@ -809,7 +809,12 @@ calculate_depth_aib  <- function(allele1_name,
   
   setnames(allele1_coverage, c("position", "allele1_depth"))
   setnames(allele2_coverage, c("position", "allele2_depth"))
-  
+
+  # depth-per-position is unique; guard against duplicate positions in a
+  # coverage file (would cartesian-explode the by-position merges below).
+  allele1_coverage <- unique(allele1_coverage, by = "position")
+  allele2_coverage <- unique(allele2_coverage, by = "position")
+
   coverage_table_at_mismatch <- data.table(allele1_mismatch_pos = allele1_mismatch$chromEnd,
                                            allele2_mismatch_pos = allele2_mismatch$chromEnd)
   
