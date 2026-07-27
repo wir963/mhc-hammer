@@ -313,11 +313,19 @@ process GET_HLA_ALLELIC_IMBALANCE {
         --scripts_dir ${projectDir}/bin/
     done
 
-    Rscript --vanilla ${baseDir}/bin/concatenate_rna_aib_tables.R \
-    --genes ${heterozygous_hla_genes} \
-    --snp_type ${snp_type} \
-    --sample_name ${meta.sample_id} \
-    --aligner ${aligner}
+    // A sample with no heterozygous HLA genes (all loci homozygous, or none passed
+    // upstream QC) leaves heterozygous_hla_genes empty -> the for-loop above no-ops,
+    // but `--genes ` with no value crashes concatenate_rna_aib_tables.R (argparse
+    // nargs="+"). Nothing to concatenate in that case, so skip it: rna_aib_tables/plots
+    // are optional: outputs, and patient_ids + versions.yml are still emitted, so the
+    // process completes cleanly instead of failing the whole patient's MHC-Hammer run.
+    if [ -n "${heterozygous_hla_genes}" ]; then
+        Rscript --vanilla ${baseDir}/bin/concatenate_rna_aib_tables.R \
+        --genes ${heterozygous_hla_genes} \
+        --snp_type ${snp_type} \
+        --sample_name ${meta.sample_id} \
+        --aligner ${aligner}
+    fi
 
     # Get R version and package versions
     R_VERSION=\$(Rscript -e "cat(as.character(getRversion()))")
