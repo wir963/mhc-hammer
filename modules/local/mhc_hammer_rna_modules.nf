@@ -130,7 +130,10 @@ process GET_HLA_ALLELIC_IMBALANCE {
 
     container "library://tpjones15/mhchammer/mhchammer_core:latest"
 
-    label 'process_single'
+    // process_low (4/8/12 GB across attempts), not process_single (2 GB): picard
+    // FilterSamReads' ReadNameFilter loads the whole single-allele read-list CSV into
+    // memory, which for high-coverage RNA HLA genes (e.g. HLA-B) overflows a small heap.
+    label 'process_low'
 
     input:
     tuple val(meta), path(hla_bams), path(personalised_reference), \
@@ -245,17 +248,17 @@ process GET_HLA_ALLELIC_IMBALANCE {
         allele1_reads_mapping_single_allele_bam=${meta.sample_id}_${meta.seq}.\${allele1}.reads_mapping_single_allele.bam 
         allele2_reads_mapping_single_allele_bam=${meta.sample_id}_${meta.seq}.\${allele2}.reads_mapping_single_allele.bam 
         
-        picard FilterSamReads \
+        picard -Xmx${task.memory.toMega() - 1024}m FilterSamReads \
         I=\$allele1_filtered_bam \
         O=\$allele1_reads_mapping_single_allele_bam \
         READ_LIST_FILE=\$reads_mapping_single_allele_list \
-        FILTER=includeReadList 
+        FILTER=includeReadList
 
-        picard FilterSamReads \
+        picard -Xmx${task.memory.toMega() - 1024}m FilterSamReads \
         I=\$allele2_filtered_bam \
         O=\$allele2_reads_mapping_single_allele_bam \
         READ_LIST_FILE=\$reads_mapping_single_allele_list \
-        FILTER=includeReadList 
+        FILTER=includeReadList
 
         # Step 2: If a read overlaps more than one SNP, make sure it is only counted once
         
