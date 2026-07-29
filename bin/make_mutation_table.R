@@ -153,17 +153,25 @@ for(tumour_sample in tumour_samples){
     ref <- region_bam_read_counts[line_idx]$REF
     alt <- region_bam_read_counts[line_idx]$ALT
     
-    if(mutation_type != "COMPLEX"){
-      bam_read_count_output <- get_bam_read_count(bam_path = region_bam_read_counts[line_idx]$bam_path, 
+    bam_exists <- file.exists(region_bam_read_counts[line_idx]$bam_path)
+    if(mutation_type != "COMPLEX" && bam_exists){
+      bam_read_count_output <- get_bam_read_count(bam_path = region_bam_read_counts[line_idx]$bam_path,
                                                   chr, start, stop, ref, alt, mutation_type)
-      
+
       region_bam_read_counts[line_idx, tumour_ref_count := bam_read_count_output$bam_ref_count]
       region_bam_read_counts[line_idx, tumour_alt_count := bam_read_count_output$bam_alt_count]
-      region_bam_read_counts[line_idx, tumour_N_count := bam_read_count_output$bam_N_count]  
+      region_bam_read_counts[line_idx, tumour_N_count := bam_read_count_output$bam_N_count]
     }else{
+      # A missing per-allele BAM means this sample has no reads for the allele
+      # (e.g. complete HLA-LOH in a pure tumour / cell-line sample). The mutation,
+      # called in another sample of this patient, is not assessable here -> leave NA.
+      if(mutation_type != "COMPLEX" && !bam_exists){
+        cat("WARNING: no BAM", region_bam_read_counts[line_idx]$bam_path,
+            "- allele absent in", tumour_sample, "(likely HLA-LOH); counts set NA\n")
+      }
       region_bam_read_counts[line_idx, tumour_ref_count := NA]
       region_bam_read_counts[line_idx, tumour_alt_count := NA]
-      region_bam_read_counts[line_idx, tumour_N_count := NA]  
+      region_bam_read_counts[line_idx, tumour_N_count := NA]
     }
   }
   
@@ -187,14 +195,20 @@ for(germline_sample in germline_samples){
     ref <- region_bam_read_counts[line_idx]$REF
     alt <- region_bam_read_counts[line_idx]$ALT
     
-    if(mutation_type != "COMPLEX"){
-      bam_read_count_output <- get_bam_read_count(bam_path = region_bam_read_counts[line_idx]$bam_path, 
+    bam_exists <- file.exists(region_bam_read_counts[line_idx]$bam_path)
+    if(mutation_type != "COMPLEX" && bam_exists){
+      bam_read_count_output <- get_bam_read_count(bam_path = region_bam_read_counts[line_idx]$bam_path,
                                                   chr, start, stop, ref, alt, mutation_type)
-      
+
       region_bam_read_counts[line_idx, germline_ref_count := bam_read_count_output$bam_ref_count]
       region_bam_read_counts[line_idx, germline_alt_count := bam_read_count_output$bam_alt_count]
       region_bam_read_counts[line_idx, germline_N_count := bam_read_count_output$bam_N_count]
     }else{
+      # See tumour loop: a missing per-allele BAM = allele absent in this sample.
+      if(mutation_type != "COMPLEX" && !bam_exists){
+        cat("WARNING: no BAM", region_bam_read_counts[line_idx]$bam_path,
+            "- allele absent in", germline_sample, "; counts set NA\n")
+      }
       region_bam_read_counts[line_idx, germline_ref_count := NA]
       region_bam_read_counts[line_idx, germline_alt_count := NA]
       region_bam_read_counts[line_idx, germline_N_count := NA]
